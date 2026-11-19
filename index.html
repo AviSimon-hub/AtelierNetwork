@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>C++ Backend Test</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    section { border: 1px solid #8884; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    h2 { margin: 0 0 .5rem; font-size: 1.05rem; }
+    code { font-size: .9rem; }
+    input { width: 5rem; padding: .3rem; }
+    input.wide { width: 10rem; }
+    button { padding: .35rem .8rem; cursor: pointer; }
+    pre { background: #8882; padding: .6rem; border-radius: 6px; margin: .6rem 0 0;
+          min-height: 1.4rem; white-space: pre-wrap; word-break: break-word; }
+    .err { color: #d33; }
+  </style>
+</head>
+<body>
+  <h1>C++ Backend Test</h1>
+
+  <!--
+    Leave BASE empty when this page is served by the C++ server itself
+    (put this file in ./public). If you open it from somewhere else
+    (Live Server, file://), set it to "http://localhost:8080" and keep
+    the CORS headers enabled in server.cpp.
+  -->
+
+  <section>
+    <h2>GET <code>/api/hello</code></h2>
+    <button onclick="callHello()">Send</button>
+    <pre id="out-hello"></pre>
+  </section>
+
+  <section>
+    <h2>POST <code>/api/add</code></h2>
+    <input id="a" type="number" value="2"> +
+    <input id="b" type="number" value="3">
+    <button onclick="callAdd()">Send</button>
+    <button onclick="callAddBad()">Send bad JSON (expect 400)</button>
+    <pre id="out-add"></pre>
+  </section>
+
+  <script>
+    const BASE = "http://localhost:8080";   // see comment above
+
+    // Shared helper: sends a request, shows the status and body in the given <pre>.
+    // fetch only rejects on network failure, so HTTP errors (400, 500) are
+    // handled by checking res.ok.
+    async function send(outId, path, options) {
+      const out = document.getElementById(outId);
+      out.classList.remove("err");
+      out.textContent = "Sending...";
+      try {
+        const res = await fetch(BASE + path, options);
+        const text = await res.text();              // read as text first so non-JSON bodies don't throw
+        let body;
+        try { body = JSON.stringify(JSON.parse(text), null, 2); }
+        catch { body = text || "(empty body)"; }
+        out.textContent = `${res.status} ${res.statusText}\n${body}`;
+        if (!res.ok) out.classList.add("err");
+      } catch (e) {
+        // Server not running, wrong port, or a CORS block
+        out.classList.add("err");
+        out.textContent = "Network error: " + e.message +
+          "\nIs the server running? Is BASE correct?";
+      }
+    }
+
+    function callHello() {
+      send("out-hello", "/api/hello");
+    }
+
+    function callGreet(omitName = false) {
+      const name = document.getElementById("name").value;
+      const query = omitName ? "" : "?name=" + encodeURIComponent(name);
+      send("out-greet", "/api/greet" + query);
+    }
+
+    function callAdd() {
+      const a = Number(document.getElementById("a").value);
+      const b = Number(document.getElementById("b").value);
+      send("out-add", "/api/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ a, b })
+      });
+    }
+
+    function callAddBad() {
+      send("out-add", "/api/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{ not valid json"
+      });
+    }
+
+    function callCounter() {
+      send("out-counter", "/api/counter/increment", { method: "POST" });
+    }
+  </script>
+</body>
+</html>
